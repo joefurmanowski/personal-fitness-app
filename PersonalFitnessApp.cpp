@@ -1,5 +1,4 @@
-// Joseph Furmanowski
-// Project2.cpp : Personal fitness application that keeps track of a user's health and activity.
+// PersonalFitnessApp.cpp : Personal fitness application that keeps track of a user's health and activity.
 
 #include <iostream>
 #include <iomanip>
