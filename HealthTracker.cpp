@@ -1,31 +1,84 @@
 #include "HealthTracker.h"
 #include "HealthData.h"
 #include <iostream>
+#include <fstream>
 #include <iomanip>
 #include <string>
+#include <vector>
 using namespace std;
 
-HealthTracker::HealthTracker(string name, string gender, int age, int size)
+HealthTracker::HealthTracker(string name, string gender, int age)
 {
 	this->name = name;
 	this->gender = gender;
 	this->age = age;
-	this->size = size;
-	this->history = new HealthData[size];
+	this->counter = 0;
 }
 
 HealthTracker::~HealthTracker()
 {
-	delete[] history;
-	history = NULL;
+	this->history.clear();
 }
 
-void shiftArrayLeft(HealthData myArray[], int size)
+int getLineCount(ifstream& temp)
 {
-	for (int i = 0; i < size - 1; i++)
+	string line;
+
+	// Ignore first line (file header)
+	getline(temp, line);
+
+	// Keep track of # of lines in file
+	int lineCount = 0;
+
+	// Keep reading until end of file
+	while (!temp.eof())
 	{
-		myArray[i] = myArray[i + 1];
+		getline(temp, line);
+
+		// Make sure line actually contains an entry 
+		if (line.length() > 0)
+		{
+			lineCount++;
+		}
 	}
+
+	// Done using file
+	temp.close();
+
+	return lineCount;
+}
+
+string trimTrailingWhitespace(string& str)
+{
+	int startIndex = 0;
+	int endIndex = 0;
+
+	// Loop through string from front to back
+	// Get index of first non-whitespace character
+	for (int i = 0; i < str.length(); i++)
+	{
+		if (!isspace(str[i]))
+		{
+			startIndex = i;
+			break;
+		}
+	}
+
+	// Loop through string from back to front
+	// Get index of first non-whitespace character
+	for (int i = str.length() - 1; i > 0; i--)
+	{
+		if (!isspace(str[i]))
+		{
+			endIndex = i;
+			break;
+		}
+	}
+
+	// The trimmed string is created from start index of first non-whitespace char & end index of first non-whitespace character (inclusive)
+	string trimmed = str.substr(startIndex, (endIndex - startIndex + 1));
+
+	return trimmed;
 }
 
 void HealthTracker::input()
@@ -36,16 +89,6 @@ void HealthTracker::input()
 	HealthData data;
 
 	cout << "You selected option 1." << endl << endl;
-
-	// If user has logged 'size' inputs,
-	// the elements of the history arrays are shifted to the left,
-	// freeing up a space at the last index where we will insert the user's next (most recent) inputs.
-	if (this->counter == this->size)
-	{
-		shiftArrayLeft(this->history, this->counter);
-		this->counter = this->size - 1; // The last index of the history array is (size - 1)
-		// 'size' elements in each array means indices range from 0 to (size - 1)
-	}
 
 	// Get user's weight
 	cout << "What is your weight (in kg)?: ";
@@ -89,9 +132,14 @@ void HealthTracker::input()
 	}
 
 	cin.ignore(10000, '\n');
-	
-	// Store health data (HealthData object) in the history array 
-	this->history[counter] = data;
+
+	// Push HealthData object to the end of the vector
+	this->history.push_back(data);
+
+	// Write data to <name>.txt
+	ofstream output(this->name + ".txt", ios::app);
+	output << left << setw(30) << data.getExerciseType() << right << fixed << setprecision(2) << setw(30) << data.getExerciseTime() << setw(30) << data.getWeight() << endl;
+	output.close();
 
 	cout << endl << "Weight and exercise information logged successfully!";
 
@@ -106,18 +154,106 @@ void HealthTracker::printHistory()
 	cout << "Gender: " << this->gender << endl;
 	cout << "Age: " << this->age << endl;
 
-	if (this->counter == 0) // User has not input any fitness data yet
+	string line;
+
+	// Open temporary input stream to see how many lines are in the file
+	ifstream temp;
+	temp.open(this->name + ".txt");
+
+	if (getLineCount(temp) == 0) // User has not input any fitness data yet
 	{
 		cout << endl << "There are no fitness data inputs to display yet." << endl;
 	}
 	else
 	{
-		cout << endl << "History of inputs from most recent to oldest (displaying up to last " << this->size << " entries):" << endl;
+		// Read file with filename <name>.txt
+		ifstream input;
+		input.open(this->name + ".txt");
 
-		// Iterate the array in reverse which displays entries from newest to oldest newest
-		for (int i = this->counter - 1; i >= 0; i--)
+		// Ignore first line (file header)
+		getline(input, line);
+
+		vector<HealthData> entriesFromFile;
+
+		// Now read each following line
+		while (!input.eof())
 		{
-			this->history[i].print();
+			getline(input, line);
+
+			if (line.length() > 0)
+			{
+				// Keep track of start/end indices for exercise type, exercise time, and weight
+				int exerciseTypeStart = 0;
+				int exerciseTypeEnd = 0;
+				int exerciseTimeStart = 0;
+				int exerciseTimeEnd = 0;
+				int weightStart = 0;
+				int weightEnd = line.length();
+
+				// Find end index of exercise type
+				for (int i = 0; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						exerciseTypeEnd = i;
+						break;
+					}
+				}
+
+				// Find starting index of exercise time value
+				for (int i = exerciseTypeEnd; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						exerciseTimeStart = i;
+						break;
+					}
+				}
+
+				// Find end index of exercise time value
+				for (int i = exerciseTimeStart; i < line.length(); i++)
+				{
+					if (isspace(line[i]))
+					{
+						exerciseTimeEnd = i;
+						break;
+					}
+				}
+
+				// Find starting index of weight value
+				for (int i = exerciseTimeEnd; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						weightStart = i;
+						break;
+					}
+				}
+
+				string exerciseType = line.substr(0, exerciseTypeEnd);
+				exerciseType = trimTrailingWhitespace(exerciseType); // Trim any whitespace after the exercise type
+
+				// Convert to double
+				double weight = stod(line.substr(weightStart, line.length() - weightStart));
+				double exerciseTime = stod(line.substr(exerciseTimeStart, exerciseTimeEnd - exerciseTimeStart));
+
+				// Create HealthData object from the entry we just read from the file
+				HealthData data(weight, exerciseType, exerciseTime);
+
+				// Push the entry we just read to the end of the vector
+				entriesFromFile.push_back(data);
+			}
+		}
+
+		cout << endl << "History of inputs from most recent to oldest (displaying the last " << entriesFromFile.size() << " entries):" << endl << endl;
+
+		// Table header
+		cout << left << setw(25) << "Weight (kg)" << setw(25) << "Exercise Type" << setw(25) << "Exercise Time (minutes)" << endl;
+
+		// Iterate the vector in reverse, displaying entries from newest to oldest
+		for (int i = entriesFromFile.size() - 1; i >= 0; i--)
+		{
+			cout << left << setw(25) << fixed << setprecision(2) << entriesFromFile.at(i).getWeight() << setw(25) << entriesFromFile.at(i).getExerciseType() << setw(25) << entriesFromFile.at(i).getExerciseTime() << endl;
 		}
 	}
 }
@@ -126,15 +262,226 @@ void HealthTracker::printRecent()
 {
 	cout << "You selected option 2." << endl;
 
-	if (this->counter == 0) // User has not input any fitness data yet
+	string line;
+
+	// Open temporary input stream to see how many lines are in the file
+	ifstream temp;
+	temp.open(this->name + ".txt");
+
+	string exerciseType;
+	double weight = 0;
+	double exerciseTime = 0;
+
+	if (getLineCount(temp) == 0)
 	{
-		cout << endl << "No fitness data to print." << endl;
+		cout << endl << "No fitness data to display." << endl;
 	}
 	else
 	{
+		// Read file with filename <name>.txt
+		ifstream input;
+		input.open(this->name + ".txt");
+
+		// Ignore first line (file header)
+		getline(input, line);
+
+		// Now read each following line
+		while (!input.eof())
+		{
+			getline(input, line);
+
+			if (line.length() > 0)
+			{
+				// Keep track of start/end indices for exercise type, exercise time, and weight
+				int exerciseTypeStart = 0;
+				int exerciseTypeEnd = 0;
+				int exerciseTimeStart = 0;
+				int exerciseTimeEnd = 0;
+				int weightStart = 0;
+				int weightEnd = line.length();
+
+				// Find end index of exercise type
+				for (int i = 0; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						exerciseTypeEnd = i;
+						break;
+					}
+				}
+
+				// Find starting index of exercise time value
+				for (int i = exerciseTypeEnd; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						exerciseTimeStart = i;
+						break;
+					}
+				}
+
+				// Find end index of exercise time value
+				for (int i = exerciseTimeStart; i < line.length(); i++)
+				{
+					if (isspace(line[i]))
+					{
+						exerciseTimeEnd = i;
+						break;
+					}
+				}
+
+				// Find starting index of weight value
+				for (int i = exerciseTimeEnd; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						weightStart = i;
+						break;
+					}
+				}
+
+				exerciseType = line.substr(0, exerciseTypeEnd);
+				exerciseType = trimTrailingWhitespace(exerciseType);
+
+				// Convert to double
+				weight = stod(line.substr(weightStart, line.length() - weightStart));
+				exerciseTime = stod(line.substr(exerciseTimeStart, exerciseTimeEnd - exerciseTimeStart));
+			}
+		}
+
 		cout << endl;
 		cout << this->name << " (" << this->gender << ", " << this->age << ")" << endl;
-		this->history[counter - 1].print();
+		cout << "Weight: " << weight << " kg" << endl;
+		cout << "Exercise: " << exerciseType << " (" << exerciseTime << " minutes)" << endl;
+	}
+
+}
+
+void HealthTracker::printSummaryReport()
+{
+	cout << "You selected option 4." << endl;
+
+	string line;
+
+	// Open temporary input stream to see how many lines are in the file
+	ifstream temp;
+	temp.open(this->name + ".txt");
+
+	// First make sure the user has data we can summarize
+	if (getLineCount(temp) == 0)
+	{
+		cout << endl << "No fitness data to summarize." << endl;
+	}
+	else
+	{
+		// Flag to use to check if min/max values have been set
+		bool minMaxValuesSet = false;
+
+		// Initialize min/max values to 0, but these will be re-assigned values when the first entry is read
+		double minWeight = 0;
+		double maxWeight = 0;
+		double minExerciseTime = 0;
+		double maxExerciseTime = 0;
+
+		// Read file with filename <name>.txt
+		ifstream input;
+		input.open(name + ".txt");
+
+		// Ignore first line (file header)
+		getline(input, line);
+
+		// Now read each following line
+		while (!input.eof())
+		{
+			getline(input, line);
+
+			if (line.length() > 0)
+			{
+				// Keep track of start/end indices for exercise time and weight
+				int exerciseTimeStart = 0;
+				int exerciseTimeEnd = 0;
+				int weightStart = 0;
+				int weightEnd = line.length();
+
+				// Find starting index of exercise time value
+				for (int i = 0; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						exerciseTimeStart = i;
+						break;
+					}
+				}
+
+				// Find end index of exercise time value
+				for (int i = exerciseTimeStart; i < line.length(); i++)
+				{
+					if (isspace(line[i]))
+					{
+						exerciseTimeEnd = i;
+						break;
+					}
+				}
+
+				// Find starting index of weight value
+				for (int i = exerciseTimeEnd; i < line.length(); i++)
+				{
+					if (isdigit(line[i]))
+					{
+						weightStart = i;
+						break;
+					}
+				}
+
+				// Convert to double
+				double weight = stod(line.substr(weightStart, weightEnd - weightStart));
+				double exerciseTime = stod(line.substr(exerciseTimeStart, exerciseTimeEnd - exerciseTimeStart));
+
+				if (!minMaxValuesSet)
+				{
+					// Assume that the first weight is the min and max value
+					// Assume that the first exercise time is the min and max value
+					// We can then compare the rest of the entries with these initial values
+					minWeight = weight;
+					maxWeight = weight;
+					minExerciseTime = exerciseTime;
+					maxExerciseTime = exerciseTime;
+
+					// Set flag to true
+					minMaxValuesSet = true;
+				}
+				else {
+					// Check if current weight is a min/max value
+					if (weight < minWeight)
+					{
+						minWeight = weight;
+					}
+					else if (weight > maxWeight)
+					{
+						maxWeight = weight;
+					}
+
+					// Check if current exercise time is a min/max value
+					if (exerciseTime < minExerciseTime)
+					{
+						minExerciseTime = exerciseTime;
+					}
+					else if (exerciseTime > maxExerciseTime)
+					{
+						maxExerciseTime = exerciseTime;
+					}
+				}
+			}
+		}
+
+		// Display summary report
+		cout << endl;
+		cout << "Your fitness summary report is below!" << endl << endl;
+		cout << left << setw(25) << " " << setw(20) << "Min" << setw(20) << "Max" << endl;
+		cout << setw(25) << "Weight (kg)" << setw(20) << fixed << setprecision(2) << minWeight << setw(20) << maxWeight << endl;
+		cout << setw(25) << "Exercise Time (minutes)" << setw(20) << minExerciseTime << setw(20) << maxExerciseTime << endl;
+
+		input.close();
 	}
 }
 
@@ -149,17 +496,18 @@ void HealthTracker::menu()
 		cout << setw(5) << "- " << "Option 1: Input today's weight and exercise information;" << endl;
 		cout << setw(5) << "- " << "Option 2: Display your latest health and activity information;" << endl;
 		cout << setw(5) << "- " << "Option 3: Display your health and activity input history;" << endl;
-		cout << setw(5) << "- " << "Option 4: Exit the program." << endl;
+		cout << setw(5) << "- " << "Option 4: Display a summary report;" << endl;
+		cout << setw(5) << "- " << "Option 5: Exit the program." << endl;
 		cout << "--------------------------------------" << endl;
 
 		// Get user's option choice
-		cout << endl << "Please select an option (1-4): ";
+		cout << endl << "Please select an option (1-5): ";
 		cin >> option;
 
 		// If user provides a non-integer value
 		// or an option that is not present in the menu,
 		// keep asking user for a valid value until it is provided
-		while (option != 1 && option != 2 && option != 3 && option != 4)
+		while (option != 1 && option != 2 && option != 3 && option != 4 && option != 5)
 		{
 			if (cin.fail())
 			{
@@ -167,7 +515,7 @@ void HealthTracker::menu()
 				cin.ignore(10000, '\n');
 			}
 			cout << "The option you selected is invalid. Please try again." << endl;
-			cout << "Please select an option (1-4): ";
+			cout << "Please select an option (1-5): ";
 			cin >> option;
 		}
 
@@ -185,7 +533,10 @@ void HealthTracker::menu()
 			printHistory();
 			break;
 		case 4:
-			cout << "You selected option 4. Goodbye!" << endl;
+			printSummaryReport();
+			break;
+		case 5:
+			cout << "You selected option 5. Goodbye!" << endl;
 			return;
 		}
 	}

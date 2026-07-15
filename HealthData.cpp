@@ -49,5 +49,7 @@ double HealthData::getExerciseTime()
 
 void HealthData::print()
 {
-	cout << "Weight: " << this->getWeight() << ", Exercise Type: " << this->getExerciseType() << ", Exercise Time: " << this->getExerciseTime() << endl;
+	cout << endl;
+	cout << "Weight: " << weight << " kg" << endl;
+	cout << "Exercise: " << exerciseType << " (" << exerciseTime << " minutes)" << endl;
 }

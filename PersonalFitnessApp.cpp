@@ -1,16 +1,46 @@
-// PersonalFitnessApp.cpp : Personal fitness application that keeps track of a user's health and activity based on user input.
+// Joseph Furmanowski
+// Project2.cpp : Personal fitness application that keeps track of a user's health and activity.
 
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <fstream>
 #include "HealthTracker.h"
 using namespace std;
 
-void getUserInfo(string& name, string& gender, int& age, int& maxInputs)
+bool fileExists(const string& name)
+{
+	ifstream file;
+	file.open(name + ".txt");
+
+	if (file.fail()) // File does not exist
+	{
+		// Create file with filename <name>.txt
+		ofstream output(name + ".txt", ios::out);
+
+		// Insert file header
+		output << left << setw(30) << "Exercise Type" << setw(30) << right << "Exercise Time" << setw(30) << "Weight" << endl;
+
+		output.close();
+		return false;
+	}
+	else // File exists
+	{
+		return true;
+	}
+}
+
+void getUserInfo(string& name, string& gender, int& age)
 {
 	// Get user's name
 	cout << "What is your name?: ";
 	getline(cin, name);
+
+	// Check if file with filename <name>.txt already exists
+	if (fileExists(name))
+	{
+		cout << "Welcome back, " << name << "!" << endl;
+	}
 
 	// Get user's gender
 	cout << "What is your gender?: ";
@@ -32,36 +62,16 @@ void getUserInfo(string& name, string& gender, int& age, int& maxInputs)
 	}
 
 	cin.ignore(10000, '\n');
-
-	cout << "How many days to keep history of?: ";
-	cin >> maxInputs;
-
-	// If user does not provide an integer value
-	// or if they provide an inappropriate integer value,
-	// keep asking user for a valid integer value until it is provided
-	while (cin.fail() || maxInputs <= 0)
-	{
-		if (cin.fail())
-		{
-			cin.clear(); // Only clear error state if user provides non-integer input
-			cin.ignore(10000, '\n');
-		}
-		cout << "The value you provided is not valid!" << endl;
-		cout << "How many days to keep history of?: ";
-		cin >> maxInputs;
-	}
-
-	cin.ignore(10000, '\n');
 }
 
 int main()
 {
 	string name, gender, exerciseType;
-	int age, maxInputs;
+	int age;
 
-	getUserInfo(name, gender, age, maxInputs);
+	getUserInfo(name, gender, age);
 
-	HealthTracker tracker(name, gender, age, maxInputs);
+	HealthTracker tracker(name, gender, age);
 
 	tracker.menu();
 

@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include "HealthData.h"
+#include <vector>
 using namespace std;
 
 class HealthTracker
@@ -9,12 +10,11 @@ private:
 	string name;
 	string gender;
 	int age;
-	int size;
-	HealthData* history;
+	vector<HealthData> history;
 	int counter;
 public:
 	// Constructor
-	HealthTracker(string name, string gender, int age, int size);
+	HealthTracker(string name, string gender, int age);
 
 	// Destructor
 	~HealthTracker();
@@ -23,6 +23,7 @@ public:
 	void input();
 	void printHistory();
 	void printRecent();
+	void printSummaryReport();
 	void menu();
 };
 
